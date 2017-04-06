@@ -9,16 +9,18 @@ import {Action, SpecificationNode, State} from './filnux_module';
  * A global state manager, invokes reducers for incoming actions.
  */
 @Injectable()
-export class StateManager extends
-    ReplaySubject<{action: Action, state: State}> {
+export class StateManager extends ReplaySubject<SpecificationNode> {
   private root: SpecificationNode;
   /** An observable that emits every received action. */
   readonly actionListener = new ReplaySubject<Action>(1);
+  /** An observable that emits global state changes in the normalized format. */
+  readonly normalized: Observable<{action: Action, state: State}>;
 
   constructor() {
     super(1);
-    this.actionListener.map(action => ({action, state: this.normalize()}))
-        .subscribe(this);
+    this.normalized = this.actionListener.map(action => {
+      return {action, state: this.normalize()};
+    });
   }
 
   initialize(specificationNode: SpecificationNode) {
