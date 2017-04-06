@@ -62,19 +62,20 @@ export class ReduxDevtoolsExtension {
     }
     this.conn = window['__REDUX_DEVTOOLS_EXTENSION__'].connect(args);
     this.conn.init({});
-    this.stateManager.subscribe(({action,
-                                  state}: {action: Action, state: State}) => {
-      if (!action) {
-        action = new InitializationAction(this.initialState = state);
-      }
-      this.actions.set(
-          action.type || action.constructor.name,
-          Object.getPrototypeOf(action));
-      // Preemptively resolve .type, as it may be a getter.
-      this.conn.send(
-          Object.assign({type: action.type || action.constructor.name}, action),
-          state);
-    });
+    this.stateManager.normalized.subscribe(
+        ({action, state}: {action: Action, state: State}) => {
+          if (!action) {
+            action = new InitializationAction(this.initialState = state);
+          }
+          this.actions.set(
+              action.type || action.constructor.name,
+              Object.getPrototypeOf(action));
+          // Preemptively resolve .type, as it may be a getter.
+          this.conn.send(
+              Object.assign(
+                  {type: action.type || action.constructor.name}, action),
+              state);
+        });
     const actions = new Observable<any>(subscriber => {
       return this.conn.subscribe((message) => subscriber.next(message));
     });
