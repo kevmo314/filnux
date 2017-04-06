@@ -67,9 +67,14 @@ export class ReduxDevtoolsExtension {
           if (!action) {
             action = new InitializationAction(this.initialState = state);
           }
-          this.actions.set(action.type, Object.getPrototypeOf(action));
+          this.actions.set(
+              action.type || action.constructor.name,
+              Object.getPrototypeOf(action));
           // Preemptively resolve .type, as it may be a getter.
-          this.conn.send(Object.assign({type: action.type}, action), state);
+          this.conn.send(
+              Object.assign(
+                  {type: action.type || action.constructor.name}, action),
+              state);
         });
     const actions = new Observable<any>(subscriber => {
       return this.conn.subscribe((message) => subscriber.next(message));
@@ -92,7 +97,8 @@ export class ReduxDevtoolsExtension {
    * does this by checking against previously seen actions from the action
    * listener.
    * @param reduxAction The action to resolve.
-   * @returns An object subclassing Action that matches the type that reduxAction represents.
+   * @returns An object subclassing Action that matches the type that
+   * reduxAction represents.
    */
   private resolveAction(reduxAction: ReduxAction): Action {
     if (this.actions.has(reduxAction.type)) {
