@@ -3,7 +3,11 @@ Isolate, immutable state management for Angular.
 
 __Filnux is still in active development. Many parts may not be working yet, see [planned features](#planned-features).__
 
-Filnux takes its inspiration from @ngrx/store.
+Filnux takes its inspiration from [@ngrx/store](https://github.com/ngrx/store) with a few key modifications.
+
+- Each module has its own store.
+- Class-based actions are used instead of a centralized reducer, allowing them to be contained within the module.
+- Actions do not rely on magic strings for identification.
 
 ## Installation
 
@@ -165,15 +169,7 @@ export interface StoreConfig {
 
 Filnux works with the [Redux DevTools](http://extension.remotedev.io/) with no additional configuration.
 
-# Concepts
-
-Filnux is inspired by [Redux](http://redux.js.org/) with a few key modifications.
-
-- Each module has its own store.
-- Class-based actions are used instead of a centralized reducer.
-- Actions do not rely on magic strings for identification.
-
-## Simplified example
+# Simplified example
 
 In the [example setup](#example-setup), we used a full object to represent state for demonstration purposes. We can get away with a much simpler set of definitions.
 
