@@ -3,6 +3,8 @@ Isolate, immutable state management for Angular.
 
 __Filnux is still in active development. Many parts may not be working yet, see [planned features](#planned-features).__
 
+Filnux takes its inspiration from @ngrx/store.
+
 ## Installation
 
 ```sh
@@ -13,11 +15,12 @@ npm install filnux --save
 
 For this example setup, we'll go through the standard Redux counter actions. Suppose our application consists a `CounterModule`, living in `counter.module.ts`, which is imported by `AppModule`.
 
-We'll first create a state interface, then create actions, then install the actions into our modules. It is recommended to put the state and actions in a `counter.store.ts` to mimic `counter.module.ts`, however this is not required.
+We'll first create a state interface, then create actions, then install the actions into our modules. It is recommended to put the state and actions in a `counter.store.ts` to mimic `counter.module.ts`, however this is not required. Feel free to mimic whatever naming convention you have in use.
 
 ## Create a state
 
 ```ts
+// counter.module.ts
 export class State {
   value: number;
   constructor(copy: State) {
@@ -33,6 +36,7 @@ export class State {
 Create individual classes for each action type. It is also recommended to put this in `counter.store.ts`.
 
 ```ts
+// counter.store.ts
 import {Action} from 'filnux';
 
 class ResetCounterAction implements Action {
@@ -60,6 +64,7 @@ A note on the above implementation, there is no explicit requirement for `State`
 In `AppModule`'s `@NgModule()`, add an import for `FilnuxModule.forRoot()`.
 
 ```ts
+// app.module.ts
 import {FilnuxModule} from 'filnux';
 import {CounterModule} from './counter.module';
 
@@ -77,6 +82,7 @@ export class AppModule {
 and then add an import for `CounterModule`, but instead with `FilnuxModule.forChild()`, installing the actions.
 
 ```ts
+// counter.module.ts
 import {FilnuxModule} from 'filnux';
 
 @NgModule({
@@ -94,6 +100,7 @@ export class CounterModule {
 In `CounterComponent`, we can inject `Store<State>` to retrieve the store for our `State`.
 
 ```ts
+// counter.component.ts
 import {Store} from 'filnux';
 import {CounterModule} from './counter.module';
 import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
@@ -170,8 +177,8 @@ Filnux is inspired by [Redux](http://redux.js.org/) with a few key modifications
 
 In the [example setup](#example-setup), we used a full object to represent state for demonstration purposes. We can get away with a much simpler set of definitions.
 
-`counter.module.ts`
 ```ts
+// counter.module.ts
 import {FilnuxModule} from 'filnux';
 
 @NgModule({
@@ -186,8 +193,8 @@ export class CounterModule {
 
 Note that `.forRoot()` doesn't need to be installed necessarily at the root of your application, but it should be installed as far up your feature tree as possible. It's generally a good idea to put it in the root `AppModule`.
 
-`counter.store.ts`
 ```ts
+// counter.store.ts
 import {Action} from 'filnux';
 
 class ResetCounterAction implements Action {
@@ -204,8 +211,8 @@ class DeltaCounterAction implements Action {
 }
 ```
 
-`counter.component.ts`
 ```ts
+// counter.component.ts
 import {Store} from 'filnux';
 import {CounterModule} from './counter.module';
 import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
@@ -242,8 +249,11 @@ class CounterComponent {
 
 # Planned features
 
+In descending order of priority,
+
 - [ ] Support for lazy-loaded modules.
 - [ ] Remove the need to supply the module and children in module installation.
+- [ ] Add a `@Select(Module, func)` decorator.
 - [ ] Add tests.
 - [ ] Improve DevTools integration.
 - [ ] Add cleanup hooks for component destruction.
