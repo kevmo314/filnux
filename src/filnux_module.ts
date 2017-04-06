@@ -60,10 +60,6 @@ export class FilnuxModule implements OnDestroy {
     };
   }
 
-
-  // Build the reducer tree.
-
-
   constructor(
       private rootState: RootState,
       // Inject this so it gets instantiated.
