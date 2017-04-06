@@ -2,7 +2,7 @@ import {Inject, ModuleWithProviders, NgModule, OnDestroy, Type} from '@angular/c
 import {Compiler, InjectionToken, Injector, NgModuleFactory, NgModuleFactoryLoader, NgModuleRef} from '@angular/core';
 
 import {ReduxDevtoolsExtension, ReduxDevtoolsOptions} from './redux_devtools_extension';
-import {RootState} from './root_state';
+import {StateManager} from './state_manager';
 import {Store} from './store';
 import {StoreConfig} from './store_config';
 import {REDUX_DEVTOOLS_EXTENSION, STORE_CONFIG} from './tokens';
@@ -19,6 +19,10 @@ export interface Reducer<S extends State, A extends Action> {
   (state: S, action: A): S;
 }
 
+/**
+ * A wrapper around each module's state, stored in a tree matching the feature
+ * module tree.
+ */
 export interface SpecificationNode {
   module: Type<any>;
   reducer: Reducer<State, Action>;
@@ -26,7 +30,7 @@ export interface SpecificationNode {
   children: SpecificationNode[];
 }
 
-@NgModule({providers: [RootState, ReduxDevtoolsExtension]})
+@NgModule({providers: [StateManager, ReduxDevtoolsExtension]})
 export class FilnuxModule implements OnDestroy {
   static forRoot(args: StoreConfig): ModuleWithProviders {
     return {
@@ -61,7 +65,7 @@ export class FilnuxModule implements OnDestroy {
   }
 
   constructor(
-      private rootState: RootState,
+      private stateManager: StateManager,
       // Inject this so it gets instantiated.
       private reduxDevtoolsExtension: ReduxDevtoolsExtension,
       @Inject(STORE_CONFIG) private storeConfigs: StoreConfig[]) {
@@ -78,7 +82,7 @@ export class FilnuxModule implements OnDestroy {
       throw new Error('Invalid module tree configuration.');
     }
 
-    this.rootState.initialize(
+    this.stateManager.initialize(
         this.toSpecificationNode(this.getStoreConfig(rootCandidates[0])));
   }
 
@@ -87,10 +91,17 @@ export class FilnuxModule implements OnDestroy {
     //       feature => this.reducerManager.removeFeature(feature));
   }
 
+  /**
+   * Gets the store config for a given module.
+   * @param node The module to get the config for.
+   */
   getStoreConfig(node: Type<any>): StoreConfig {
     return this.storeConfigs.find(config => config.module === node);
   }
 
+  /**
+   * Converts a given StoreConfig to a SpecificationNode.
+   */
   toSpecificationNode(storeConfig: StoreConfig): SpecificationNode {
     return <SpecificationNode>{
       module: storeConfig.module,
@@ -101,6 +112,10 @@ export class FilnuxModule implements OnDestroy {
     };
   }
 
+  /**
+   * Gets the reducer for a given StoreConfig that uses the actions defined in
+   * the config.
+   */
   getReducer(storeConfig: StoreConfig): Reducer<State, Action> {
     if (storeConfig.reducer) {
       return storeConfig.reducer;
@@ -111,6 +126,12 @@ export class FilnuxModule implements OnDestroy {
     return x => x;
   }
 
+  /**
+   * Parse a StoreConfig.action parameter and return a created reducer from the
+   * given parameters.
+   * @param actionTypes The parameter to parse.
+   * @param initialState The initial state to pass to the created reducers.
+   */
   parseActions(actionTypes: Object|Type<any>[], initialState: State):
       Reducer<State, Action> {
     if (actionTypes instanceof Array) {

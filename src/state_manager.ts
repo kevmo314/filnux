@@ -5,17 +5,20 @@ import {BehaviorSubject, Subject} from 'rxjs/Rx';
 
 import {Action, SpecificationNode, State} from './filnux_module';
 
+/**
+ * A global state manager, invokes reducers for incoming actions.
+ */
 @Injectable()
-export class RootState extends ReplaySubject<SpecificationNode> {
+export class StateManager extends
+    ReplaySubject<{action: Action, state: State}> {
   private root: SpecificationNode;
+  /** An observable that emits every received action. */
   readonly actionListener = new ReplaySubject<Action>(1);
-  readonly normalized: Observable<{action: Action, state: State}>;
 
   constructor() {
     super(1);
-    this.normalized = this.actionListener.map(action => {
-      return {action, state: this.normalize()};
-    });
+    this.actionListener.map(action => ({action, state: this.normalize()}))
+        .subscribe(this);
   }
 
   initialize(specificationNode: SpecificationNode) {
@@ -23,6 +26,10 @@ export class RootState extends ReplaySubject<SpecificationNode> {
     this.update(null);
   }
 
+  /**
+   * @param action The action to
+   * @param silent Whether or not to notify the subscribers to actionListener.
+   */
   update(action: Action, silent: boolean = false) {
     this.recurse(action, this.root);
     if (!silent) {
@@ -30,6 +37,10 @@ export class RootState extends ReplaySubject<SpecificationNode> {
     }
   }
 
+  /**
+   * Recurses through the specification node tree invoking the reducers with
+   * their respective states and the provided action.
+   */
   private recurse(action: Action, node: SpecificationNode) {
     const state = node.reducer(node.state, action);
     if (state !== node.state) {

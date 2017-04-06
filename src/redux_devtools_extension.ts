@@ -3,7 +3,7 @@ import {parse} from 'jsan';
 import {Observable} from 'rxjs/Observable';
 
 import {Action, Reducer, State} from './filnux_module';
-import {RootState} from './root_state';
+import {StateManager} from './state_manager';
 import {REDUX_DEVTOOLS_EXTENSION} from './tokens';
 
 type ReduxAction = {
@@ -56,26 +56,25 @@ export class ReduxDevtoolsExtension {
   private committedState: State;
   constructor(
       @Inject(REDUX_DEVTOOLS_EXTENSION) private args: ReduxDevtoolsOptions,
-      private rootState: RootState) {
+      private stateManager: StateManager) {
     if (typeof window !== 'object' || !window['__REDUX_DEVTOOLS_EXTENSION__']) {
       return;
     }
     this.conn = window['__REDUX_DEVTOOLS_EXTENSION__'].connect(args);
     this.conn.init({});
-    this.rootState.normalized.subscribe(
-        ({action, state}: {action: Action, state: State}) => {
-          if (!action) {
-            action = new InitializationAction(this.initialState = state);
-          }
-          this.actions.set(
-              action.type || action.constructor.name,
-              Object.getPrototypeOf(action));
-          // Preemptively resolve .type, as it may be a getter.
-          this.conn.send(
-              Object.assign(
-                  {type: action.type || action.constructor.name}, action),
-              state);
-        });
+    this.stateManager.subscribe(({action,
+                                  state}: {action: Action, state: State}) => {
+      if (!action) {
+        action = new InitializationAction(this.initialState = state);
+      }
+      this.actions.set(
+          action.type || action.constructor.name,
+          Object.getPrototypeOf(action));
+      // Preemptively resolve .type, as it may be a getter.
+      this.conn.send(
+          Object.assign({type: action.type || action.constructor.name}, action),
+          state);
+    });
     const actions = new Observable<any>(subscriber => {
       return this.conn.subscribe((message) => subscriber.next(message));
     });
@@ -135,7 +134,7 @@ export class ReduxDevtoolsExtension {
       return liftedState;
     }
     // Set the root state to what it was before the toggled action.
-    this.rootState.denormalize(liftedState.computedStates[index - 1].state);
+    this.stateManager.denormalize(liftedState.computedStates[index - 1].state);
     // Then recompute the states.
     for (let i = index; i < liftedState.stagedActionIds.length; i++) {
       if (skipped.has(liftedState.stagedActionIds[i])) {
@@ -146,8 +145,8 @@ export class ReduxDevtoolsExtension {
       try {
         const action = this.resolveAction(
             liftedState.actionsById[liftedState.stagedActionIds[i]].action);
-        this.rootState.update(action, true);
-        liftedState.computedStates[i].state = this.rootState.normalize();
+        this.stateManager.update(action, true);
+        liftedState.computedStates[i].state = this.stateManager.normalize();
       } catch (err) {
         liftedState.computedStates[i].state =
             liftedState.computedStates[i - 1].state;
@@ -164,11 +163,11 @@ export class ReduxDevtoolsExtension {
         this.conn.init({});
         this.conn.send(
             new InitializationAction(this.initialState), this.initialState);
-        this.rootState.denormalize(this.initialState);
+        this.stateManager.denormalize(this.initialState);
         return;
       case 'COMMIT':
         this.conn.init({});
-        this.committedState = this.rootState.normalize();
+        this.committedState = this.stateManager.normalize();
         this.conn.send(
             new InitializationAction(this.committedState), this.committedState);
         return;
@@ -176,11 +175,11 @@ export class ReduxDevtoolsExtension {
         this.conn.init({});
         this.conn.send(
             new InitializationAction(this.committedState), this.committedState);
-        this.rootState.denormalize(this.committedState);
+        this.stateManager.denormalize(this.committedState);
         return;
       case 'JUMP_TO_STATE':
       case 'JUMP_TO_ACTION':
-        this.rootState.denormalize(<State>parse(state));
+        this.stateManager.denormalize(<State>parse(state));
         return;
       case 'TOGGLE_ACTION':
         this.conn.send(
@@ -188,7 +187,7 @@ export class ReduxDevtoolsExtension {
         return;
       case 'IMPORT_STATE':
         const computedStates = payload.nextLiftedState.computedStates;
-        this.rootState.denormalize(
+        this.stateManager.denormalize(
             computedStates[computedStates.length - 1].state);
         this.conn.send(null, payload.nextLiftedState);
         return;
