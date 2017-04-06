@@ -254,6 +254,7 @@ In descending order of priority,
 - [ ] Support for lazy-loaded modules.
 - [ ] Remove the need to supply the module and children in module installation.
 - [ ] Add a `@Select(Module, func)` decorator.
+- [ ] Add event hooks and router bindings.
 - [ ] Add tests.
 - [ ] Improve DevTools integration.
 - [ ] Add cleanup hooks for component destruction.
