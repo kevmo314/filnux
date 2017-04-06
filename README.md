@@ -257,3 +257,7 @@ In descending order of priority,
 - [ ] Add tests.
 - [ ] Improve DevTools integration.
 - [ ] Add cleanup hooks for component destruction.
+
+# Why "Filnux"?
+
+It's the word *influx* with the letters sorted alphabetically. 🙂
