@@ -101,7 +101,7 @@ export class CounterModule {
 
 ## Using the store
 
-In `CounterComponent`, we can inject `Store<State>` to retrieve the store for our `State`.
+In `CounterComponent`, we can inject `Store` to retrieve the store for our `State`.
 
 ```ts
 // counter.component.ts
@@ -121,8 +121,8 @@ import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
 class CounterComponent {
 	counter: Observable<number>;
 
-	constructor(private store: Store<State>){
-		this.counter = store.select(CounterModule).map(state => state.value);
+	constructor(private store: Store){
+		this.counter = store.select<State>(CounterModule).map(state => state.value);
 	}
 
 	increment(){
@@ -225,8 +225,8 @@ import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
 class CounterComponent {
 	counter: Observable<number>;
 
-	constructor(private store: Store<State>){
-		this.counter = store.select(CounterModule);
+	constructor(private store: Store){
+		this.counter = store.select<State>(CounterModule);
 	}
 
 	increment(){

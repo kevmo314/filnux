@@ -13,10 +13,10 @@ import {StateManager} from './state_manager';
  * reduction back to the store.
  */
 @Injectable()
-export class Store<T> implements Observer<Action> {
+export class Store implements Observer<Action> {
   constructor(private stateManager: StateManager) {}
 
-  select(module: Type<any>): Observable<Readonly<T>> {
+  select<T>(module: Type<any>): Observable<Readonly<T>> {
     // TODO: Possibly cache this observable.
     return this.stateManager
         .filter(specificationNode => specificationNode.module === module)
