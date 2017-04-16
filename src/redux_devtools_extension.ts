@@ -4,7 +4,8 @@ import {Observable} from 'rxjs/Observable';
 
 import {Action, Reducer, State} from './filnux_module';
 import {StateManager} from './state_manager';
-import {REDUX_DEVTOOLS_EXTENSION} from './tokens';
+import {StoreConfig} from './store_config';
+import {REDUX_DEVTOOLS_EXTENSION, STORE_CONFIG} from './tokens';
 
 type ReduxAction = {
   type: string
@@ -40,42 +41,39 @@ interface LiftedState {
   computedStates: {state: State, error: any}[];
 }
 
-class InitializationAction implements Action {
-  type = '[Filnux] Initialization';
-  constructor(private state: State) {}
-  reduce(state: State): State {
-    return this.state;
-  }
-}
-
 @Injectable()
 export class ReduxDevtoolsExtension {
   private conn: ReduxDevtoolsConnection;
-  private actions: Map<string, Action> = new Map<string, Action>();
+  private actions: Map<string, Type<Action>> = new Map<string, Type<Action>>();
   private initialState: State;
   private committedState: State;
   constructor(
       @Inject(REDUX_DEVTOOLS_EXTENSION) private args: ReduxDevtoolsOptions,
+      @Inject(STORE_CONFIG) private storeConfigs: StoreConfig[],
       private stateManager: StateManager) {
     if (typeof window !== 'object' || !window['__REDUX_DEVTOOLS_EXTENSION__']) {
       return;
     }
     this.conn = window['__REDUX_DEVTOOLS_EXTENSION__'].connect(args);
-    this.conn.init({});
     this.stateManager.normalized.subscribe(
         ({action, state}: {action: Action, state: State}) => {
           if (!action) {
-            action = new InitializationAction(this.initialState = state);
+            this.conn.init(this.initialState = state);
+          } else {
+            // Preemptively resolve .type, as it may be a getter.
+            this.conn.send(
+                Object.assign(
+                    {type: action.type || action.constructor.name}, action),
+                state);
           }
-          this.actions.set(
-              action.type || action.constructor.name,
-              Object.getPrototypeOf(action));
-          // Preemptively resolve .type, as it may be a getter.
-          this.conn.send(
-              Object.assign(
-                  {type: action.type || action.constructor.name}, action),
-              state);
         });
+
+    for (const storeConfig of this.storeConfigs) {
+      if (storeConfig.actions) {
+        this.addActions(storeConfig.actions);
+      }
+    }
+
     const actions = new Observable<any>(subscriber => {
       return this.conn.subscribe((message) => subscriber.next(message));
     });
@@ -89,6 +87,16 @@ export class ReduxDevtoolsExtension {
 
     startActions.switchMap(() => dispatchActions.takeUntil(stopActions))
         .subscribe(({payload, state}) => this.dispatch(payload, state));
+  }
+
+  private addActions(actions: Object|Type<Action>[]) {
+    if (actions instanceof Array) {
+      for (const action of actions) {
+        this.actions.set(action.name, action);
+      }
+    } else {
+      Object.keys(actions).forEach(key => this.addActions(actions[key]));
+    }
   }
 
   /**
@@ -118,9 +126,8 @@ export class ReduxDevtoolsExtension {
       return target;
     }
     throw new Error(
-        'Unable to resolve action "' + reduxAction.type + '". ' +
-        'The store may not have seen this action yet, and cannot handle actions that it has not seen. ' +
-        'This is a known limitation of Filnux.');
+        'Unable to resolve action "' + reduxAction.type +
+        '". Was it registered in the module?');
   }
 
   private toggleAction(actionId: number, liftedState: LiftedState) {
@@ -161,21 +168,14 @@ export class ReduxDevtoolsExtension {
   private dispatch(payload, state: string): LiftedState {
     switch (payload.type) {
       case 'RESET':
-        this.conn.init({});
-        this.conn.send(
-            new InitializationAction(this.initialState), this.initialState);
+        this.conn.init(this.initialState);
         this.stateManager.denormalize(this.initialState);
         return;
       case 'COMMIT':
-        this.conn.init({});
-        this.committedState = this.stateManager.normalize();
-        this.conn.send(
-            new InitializationAction(this.committedState), this.committedState);
+        this.conn.init(this.committedState = this.stateManager.normalize());
         return;
       case 'ROLLBACK':
-        this.conn.init({});
-        this.conn.send(
-            new InitializationAction(this.committedState), this.committedState);
+        this.conn.init(this.committedState);
         this.stateManager.denormalize(this.committedState);
         return;
       case 'JUMP_TO_STATE':
