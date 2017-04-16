@@ -5,9 +5,15 @@
             "es6",
             "dom"
         ],
-        "module": "es6",
+        "module": "commonjs",
         "moduleResolution": "node",
         "target": "es5",
-        "sourceMap": true
-    }
+        "sourceMap": true,
+        "types": [
+            "jasmine"
+        ]
+    },
+    "exclude": [
+        "node_modules"
+    ]
 }

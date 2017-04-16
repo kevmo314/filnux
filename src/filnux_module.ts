@@ -64,9 +64,10 @@ export class FilnuxModule implements OnDestroy {
     };
   }
 
+  private readonly storeConfigMap = new Map<Type<any>, StoreConfig>();
+
   constructor(
       private stateManager: StateManager,
-      // Inject this so it gets instantiated.
       private reduxDevtoolsExtension: ReduxDevtoolsExtension,
       @Inject(STORE_CONFIG) private storeConfigs: StoreConfig[]) {
     const childNodes: Set<Type<any>> = new Set<Type<any>>();
@@ -78,12 +79,20 @@ export class FilnuxModule implements OnDestroy {
     const rootCandidates: Type<any>[] =
         storeConfigs.map(config => config.module)
             .filter(module => !childNodes.has(module));
-    if (rootCandidates.length !== 1) {
-      throw new Error('Invalid module tree configuration.');
+    if (rootCandidates.length === 0) {
+      throw new Error(
+          'Invalid module tree configuration, no module was identified as the root.');
+    } else if (rootCandidates.length > 1) {
+      throw new Error(
+          'Invalid module tree configuration, at least two modules were not declared as children.');
+    }
+
+    for (const storeConfig of storeConfigs) {
+      this.storeConfigMap.set(storeConfig.module, storeConfig);
     }
 
     this.stateManager.initialize(
-        this.toSpecificationNode(this.getStoreConfig(rootCandidates[0])));
+        this.toSpecificationNode(this.storeConfigMap.get(rootCandidates[0])));
   }
 
   ngOnDestroy() {
@@ -92,23 +101,15 @@ export class FilnuxModule implements OnDestroy {
   }
 
   /**
-   * Gets the store config for a given module.
-   * @param node The module to get the config for.
-   */
-  getStoreConfig(node: Type<any>): StoreConfig {
-    return this.storeConfigs.find(config => config.module === node);
-  }
-
-  /**
    * Converts a given StoreConfig to a SpecificationNode.
    */
-  toSpecificationNode(storeConfig: StoreConfig): SpecificationNode {
+  private toSpecificationNode(storeConfig: StoreConfig): SpecificationNode {
     return <SpecificationNode>{
       module: storeConfig.module,
       reducer: this.getReducer(storeConfig),
       state: null,
       children: storeConfig.children.map(
-          module => this.toSpecificationNode(this.getStoreConfig(module)))
+          module => this.toSpecificationNode(this.storeConfigMap.get(module)))
     };
   }
 
@@ -116,7 +117,7 @@ export class FilnuxModule implements OnDestroy {
    * Gets the reducer for a given StoreConfig that uses the actions defined in
    * the config.
    */
-  getReducer(storeConfig: StoreConfig): Reducer<State, Action> {
+  private getReducer(storeConfig: StoreConfig): Reducer<State, Action> {
     if (storeConfig.reducer) {
       return storeConfig.reducer;
     }
@@ -132,7 +133,7 @@ export class FilnuxModule implements OnDestroy {
    * @param actionTypes The parameter to parse.
    * @param initialState The initial state to pass to the created reducers.
    */
-  parseActions(actionTypes: Object|Type<any>[], initialState: State):
+  private parseActions(actionTypes: Object|Type<Action>[], initialState: State):
       Reducer<State, Action> {
     if (actionTypes instanceof Array) {
       // TODO: Optimize by building a map of types to actions maybe.
