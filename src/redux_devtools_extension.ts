@@ -138,21 +138,16 @@ export class ReduxDevtoolsExtension {
     this.stateManager.denormalize(liftedState.computedStates[index - 1].state);
     // Then recompute the states.
     for (let i = index; i < liftedState.stagedActionIds.length; i++) {
-      if (skipped.has(liftedState.stagedActionIds[i])) {
-        liftedState.computedStates[i].state =
-            liftedState.computedStates[i - 1].state;
-        continue;
-      }
       try {
-        const action = this.resolveAction(
+        if (!skipped.has(liftedState.stagedActionIds[i])) {
+          const action = this.resolveAction(
             liftedState.actionsById[liftedState.stagedActionIds[i]].action);
-        this.stateManager.update(action, true);
-        liftedState.computedStates[i].state = this.stateManager.normalize();
+          this.stateManager.update(action, true);
+        }
       } catch (err) {
-        liftedState.computedStates[i].state =
-            liftedState.computedStates[i - 1].state;
         this.conn.error(err.message);
       }
+      liftedState.computedStates[i].state = this.stateManager.normalize();
     }
     liftedState.skippedActionIds = Array.from(skipped);
     return liftedState;
