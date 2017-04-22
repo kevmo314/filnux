@@ -3,16 +3,18 @@ import {Observable} from 'rxjs/Observable';
 import {Observer} from 'rxjs/Observer';
 import {BehaviorSubject} from 'rxjs/Rx';
 
-import {Action, State} from './filnux_module';
-import {StateManager} from './state_manager';
+import { Action, State, Node } from './filnux_module';
+import {StateManager, DispatchAction, CreateStoreAction} from './state_manager';
 
-interface StoreOptions<T> {
+export interface StoreOptions<T> {
   context?: Type<any>;
   actions?: Type<Action<T>>[];
   name?: string;
 }
 
 let count = 0;
+
+let root: Store<Node> = new Store<Node>({}, {actions: [DispatchAction, CreateStoreAction]});
 
 /**
  * A Store observes Actions and emits States.
@@ -23,7 +25,7 @@ let count = 0;
  */
 export class Store<T> implements Observer<Action<T>> {
   private actionTypes: Type<Action<T>>[] = [];
-  private state: T;
+  public state: T;
   private stateObservable: BehaviorSubject<Readonly<T>>;
   public key: string;
   public context: Type<any>;
@@ -35,7 +37,8 @@ export class Store<T> implements Observer<Action<T>> {
     }
     this.key = options.name || String(++count);
     this.context = options.context;
-    StateManager.addStore(this);
+    // Attach this state to the root node.
+    root.next(new CreateStoreAction(this));
   }
 
   addAction(actionType: Type<Action<T>>): Store<T> {
@@ -74,7 +77,13 @@ export class Store<T> implements Observer<Action<T>> {
           'Store "' + this.options.name +
           '" is not registered to handle action "' + action.type + '".');
     }
-    this.state = Object.freeze(action.reduce(this.state));
+    if (root == this) {
+      // This is the root store, so execute the state directly. 
+      this.state = Object.freeze(action.reduce(this.state));
+    } else {
+      // Propagate the update to the root via a DispatchAction.
+      root.next(new DispatchAction(this.context, this.key, action));
+    }
     this.stateObservable.next(this.state);
   }
 

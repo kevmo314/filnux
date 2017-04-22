@@ -32,7 +32,7 @@ export interface Node {
 @NgModule({providers: [ReduxDevtoolsExtension]})
 export class FilnuxModule implements OnDestroy {
   static forRoot(root: Type<any>, devtoolsOptions: ReduxDevtoolsOptions = {}):
-      ModuleWithProviders {
+    ModuleWithProviders {
     StateManager.setRootContext(root);
     return {
       ngModule: FilnuxModule,

@@ -4,24 +4,44 @@ import {ReplaySubject} from 'rxjs/ReplaySubject';
 import {BehaviorSubject, Subject} from 'rxjs/Rx';
 
 import {Action, Node, State} from './filnux_module';
-import {Store} from './store';
+import {Store, StoreOptions} from './store';
 
 interface NormalizedState {
   stores: State
 }
 
-class NormalizedAction implements Action<Node> {
+export class DispatchAction<T> implements Action<Node> {
   get type() {
-    return this.context.name;
+    return this.action.type;
   }
-  constructor(
-      private key: string, private context: Type<any>,
-      private action: Action<State>) {}
-  reduce(state: Node): Node {
-    // Attempt to find the correct state.
+  constructor(private context: Type<any>, private key: string, private action: Action<T>) {  }
+  reduce(root: Node): Node {
+    this.store.state = this.action.reduce(this.store.state);
+    return root;
+  }
+}
 
-    // This reducer is mutable. Shhh, don't tell anyone.
-    return state;
+export class CreateStoreAction<T> implements Action<Node> {
+  readonly type = "[Filnux] Create store";
+  constructor(private store: Store<T>) { }
+  reduce(root: Node): Node {
+    let node = root;
+    if (this.store.context) {
+      for (const child of StateManager.getContextPath(this.store.context)) {
+        if (!node.children) {
+          node.children = new Map<Type<any>, Node>();
+        }
+        if (!node.children.has(child)) {
+          node.children.set(child, {} as Node);
+        }
+        node = node.children.get(child);
+      }
+    }
+    if (!node.stores) {
+      node.stores = new Map<string, Store<any>>();
+    }
+    node.stores.set(this.store.key, this.store);
+    return root;
   }
 }
 
