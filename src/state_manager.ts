@@ -1,73 +1,88 @@
-import {Injectable} from '@angular/core';
+import {Injectable, Type} from '@angular/core';
 import {Observable} from 'rxjs/Observable';
 import {ReplaySubject} from 'rxjs/ReplaySubject';
 import {BehaviorSubject, Subject} from 'rxjs/Rx';
 
-import {Action, SpecificationNode, State} from './filnux_module';
+import {Action, Node, State} from './filnux_module';
+import {Store} from './store';
+
+interface NormalizedState {
+  stores: State
+}
+
+class NormalizedAction implements Action<Node> {
+  get type() {
+    return this.context.name;
+  }
+  constructor(
+      private key: string, private context: Type<any>,
+      private action: Action<State>) {}
+  reduce(state: Node): Node {
+    // Attempt to find the correct state.
+
+    // This reducer is mutable. Shhh, don't tell anyone.
+    return state;
+  }
+}
 
 /**
  * A global state manager, invokes reducers for incoming actions.
  */
-@Injectable()
-export class StateManager extends ReplaySubject<SpecificationNode> {
-  private root: SpecificationNode;
-  /** An observable that emits every received action. */
-  readonly actionListener = new ReplaySubject<Action>(1);
-  /** An observable that emits global state changes in the normalized format. */
-  readonly normalized: Observable<{action: Action, state: State}>;
+export namespace StateManager {
+  const root: Node = {};
+  export const actions = new Observable<Action<any>>();
+  export const normalized = actions.map(action => {
+    return {action, state: normalize()};
+  });
 
-  constructor() {
-    super(1);
-    this.normalized = this.actionListener.map(action => {
-      return {action, state: this.normalize()};
-    });
+  export function error(err: any) {
+    console.error(err);
+    debugger;
   }
 
-  initialize(specificationNode: SpecificationNode) {
-    this.root = specificationNode;
-    this.update(null);
+  export function addStore(store: Store<any>) {
+    // Then add it to the context node.
+    let node = root;
+    if (store.context) {
+      for (const child of getContextPath(store.context)) {
+        if (!node.children) {
+          node.children = new Map<Type<any>, Node>();
+        }
+        if (!node.children.has(child)) {
+          node.children.set(child, {} as Node);
+        }
+        node = node.children.get(child);
+      }
+    }
+    if (!node.stores) {
+      node.stores = new Map<string, Store<any>>();
+    }
+    node.stores.set(store.key, store);
   }
 
-  /**
-   * @param action The action to
-   * @param silent Whether or not to notify the subscribers to actionListener.
-   */
-  update(action: Action, silent: boolean = false) {
-    this.recurse(action, this.root);
-    if (!silent) {
-      this.actionListener.next(action);
-    }
-  }
-
-  /**
-   * Recurses through the specification node tree invoking the reducers with
-   * their respective states and the provided action.
-   */
-  private recurse(action: Action, node: SpecificationNode) {
-    const state = node.reducer(node.state, action);
-    if (state !== node.state) {
-      node.state = state;
-      this.next(node);
-    }
-    for (const child of node.children) {
-      this.recurse(action, child);
-    }
+  function getContextPath(context: Type<any>): Type<any>[] {
+    return [context];
   }
 
   /**
    * Returns a normalized state which follows the object pattern more common
-   * among Redux implementations.
+   * among Redux implementations for debugging and visualization.
    * @returns A normalized `State`.
    */
-  normalize(node: SpecificationNode = this.root): State {
+  function normalize(node: Node = root): State {
     const state = {};
-    if (node.state) {
-      state['module'] = node.state;
+    if (node.stores) {
+      state['__store__'] = {};
+      node.stores.forEach((value, key) => {
+        state['__store__'][key] = value;
+      });
     }
-    for (const child of node.children) {
-      state[child.module.name] = this.normalize(child);
+    if (node.children) {
+      node.children.forEach((value, key) => {
+        state[key.name] = this.normalize(value);
+      });
     }
-    return <State>state;
+    return state;
   }
 
   /**
@@ -75,13 +90,16 @@ export class StateManager extends ReplaySubject<SpecificationNode> {
    * `normalize`.
    * @param state The normalized state to reset this tree to.
    */
-  denormalize(state: State, node: SpecificationNode = this.root) {
-    if ('module' in state) {
-      node.state = state['module'];
-    }
-    for (const child of node.children) {
-      if (child.module.name in state) {
-        this.denormalize(state[child.module.name], child);
+  function denormalize(state: State, node: Node = this.root) {
+    for (const context in state) {
+      if (context == '__store__') {
+        for (const key in state['__store__']) {
+          node.stores.get(key).reset(state['__store__'][key]);
+        }
+      } else {
+        const matchingType =
+            Array.from(node.children.keys()).find(key => key.name == context);
+        denormalize(state[context], node.children.get(matchingType));
       }
     }
   }

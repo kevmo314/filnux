@@ -4,18 +4,19 @@ import {Compiler, InjectionToken, Injector, NgModuleFactory, NgModuleFactoryLoad
 import {ReduxDevtoolsExtension, ReduxDevtoolsOptions} from './redux_devtools_extension';
 import {StateManager} from './state_manager';
 import {Store} from './store';
-import {StoreConfig} from './store_config';
-import {REDUX_DEVTOOLS_EXTENSION, STORE_CONFIG} from './tokens';
+import {REDUX_DEVTOOLS_EXTENSION} from './tokens';
 
 // States are just objects. This is here for syntactic sugar.
 export type State = Object;
 
-export interface Action {
-  type?: string;
-  reduce(state: State): State;
+export abstract class Action<S> {
+  get type(): string {
+    return this.constructor.name;
+  }
+  abstract reduce<S extends State>(state: S): S;
 }
 
-export interface Reducer<S extends State, A extends Action> {
+export interface Reducer<S extends State, A extends Action<S>> {
   (state: S, action: A): S;
 }
 
@@ -23,94 +24,30 @@ export interface Reducer<S extends State, A extends Action> {
  * A wrapper around each module's state, stored in a tree matching the feature
  * module tree.
  */
-export interface SpecificationNode {
-  module: Type<any>;
-  reducer: Reducer<State, Action>;
-  state: State;
-  children: SpecificationNode[];
+export interface Node {
+  stores?: Map<string, Store<any>>;
+  children?: Map<Type<any>, Node>;
 }
 
-@NgModule({providers: [StateManager, ReduxDevtoolsExtension]})
+@NgModule({providers: [ReduxDevtoolsExtension]})
 export class FilnuxModule implements OnDestroy {
-  static forRoot(args: StoreConfig): ModuleWithProviders {
+  static forRoot(root: Type<any>, devtoolsOptions: ReduxDevtoolsOptions = {}):
+      ModuleWithProviders {
+    StateManager.setRootContext(root);
     return {
       ngModule: FilnuxModule,
-      providers: [
-        {
-          provide: STORE_CONFIG,
-          multi: true,
-          useValue: <StoreConfig>Object.assign({children: []}, args)
-        },
-        Store, {
-          provide: REDUX_DEVTOOLS_EXTENSION,
-          useValue:
-              Object.assign({serialize: {options: true}}, args.devtoolsOptions)
-        }
-      ]
+      providers: [{
+        provide: REDUX_DEVTOOLS_EXTENSION,
+        useValue: Object.assign({serialize: {options: true}}, devtoolsOptions)
+      }]
     };
   }
 
-  static forChild(args: StoreConfig): ModuleWithProviders {
-    return {
-      ngModule: FilnuxModule,
-      providers: [
-        {
-          provide: STORE_CONFIG,
-          multi: true,
-          useValue: <StoreConfig>Object.assign({children: []}, args)
-        },
-        Store
-      ]
-    };
-  }
-
-  private readonly storeConfigMap = new Map<Type<any>, StoreConfig>();
-
-  constructor(
-      private stateManager: StateManager,
-      private reduxDevtoolsExtension: ReduxDevtoolsExtension,
-      @Inject(STORE_CONFIG) private storeConfigs: StoreConfig[]) {
-    const childNodes: Set<Type<any>> = new Set<Type<any>>();
-    storeConfigs.map(config => config.children || []).forEach(children => {
-      for (const child of children) {
-        childNodes.add(child);
-      }
-    });
-    const rootCandidates: Type<any>[] =
-        storeConfigs.map(config => config.module)
-            .filter(module => !childNodes.has(module));
-    if (rootCandidates.length === 0) {
-      throw new Error(
-          'Invalid module tree configuration, no module was identified as the root.');
-    } else if (rootCandidates.length > 1) {
-      throw new Error(
-          'Invalid module tree configuration, at least two modules were not declared as children.');
-    }
-
-    for (const storeConfig of storeConfigs) {
-      this.storeConfigMap.set(storeConfig.module, storeConfig);
-    }
-
-    this.stateManager.initialize(
-        this.toSpecificationNode(this.storeConfigMap.get(rootCandidates[0])));
-  }
+  constructor(private reduxDevtoolsExtension: ReduxDevtoolsExtension) {}
 
   ngOnDestroy() {
     //   this.features.forEach(
     //       feature => this.reducerManager.removeFeature(feature));
-  }
-
-  /**
-   * Converts a given StoreConfig to a SpecificationNode.
-   */
-  private toSpecificationNode(storeConfig: StoreConfig): SpecificationNode {
-    return <SpecificationNode>{
-      module: storeConfig.module,
-      reducer: this.getReducer(storeConfig),
-      state: null,
-      children: storeConfig.children.map(
-          module => this.toSpecificationNode(this.storeConfigMap.get(module)))
-    };
   }
 
   /**

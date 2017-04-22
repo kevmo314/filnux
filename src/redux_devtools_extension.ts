@@ -49,8 +49,7 @@ export class ReduxDevtoolsExtension {
   private committedState: State;
   constructor(
       @Inject(REDUX_DEVTOOLS_EXTENSION) private args: ReduxDevtoolsOptions,
-      @Inject(STORE_CONFIG) private storeConfigs: StoreConfig[],
-      private stateManager: StateManager) {
+      @Inject(STORE_CONFIG) private storeConfigs: StoreConfig[]) {
     if (typeof window !== 'object' || !window['__REDUX_DEVTOOLS_EXTENSION__']) {
       return;
     }
@@ -148,7 +147,7 @@ export class ReduxDevtoolsExtension {
       try {
         if (!skipped.has(liftedState.stagedActionIds[i])) {
           const action = this.resolveAction(
-            liftedState.actionsById[liftedState.stagedActionIds[i]].action);
+              liftedState.actionsById[liftedState.stagedActionIds[i]].action);
           this.stateManager.update(action, true);
         }
       } catch (err) {
