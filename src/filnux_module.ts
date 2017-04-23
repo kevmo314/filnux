@@ -2,7 +2,6 @@ import {Inject, ModuleWithProviders, NgModule, OnDestroy, Type} from '@angular/c
 import {Compiler, InjectionToken, Injector, NgModuleFactory, NgModuleFactoryLoader, NgModuleRef} from '@angular/core';
 
 import {ReduxDevtoolsExtension, ReduxDevtoolsOptions} from './redux_devtools_extension';
-import {StateManager} from './state_manager';
 import {Store} from './store';
 import {REDUX_DEVTOOLS_EXTENSION} from './tokens';
 
@@ -32,8 +31,8 @@ export interface Node {
 @NgModule({providers: [ReduxDevtoolsExtension]})
 export class FilnuxModule implements OnDestroy {
   static forRoot(root: Type<any>, devtoolsOptions: ReduxDevtoolsOptions = {}):
-    ModuleWithProviders {
-    StateManager.setRootContext(root);
+      ModuleWithProviders {
+    // StateManager.setRootContext(root);
     return {
       ngModule: FilnuxModule,
       providers: [{
@@ -51,52 +50,39 @@ export class FilnuxModule implements OnDestroy {
   }
 
   /**
-   * Gets the reducer for a given StoreConfig that uses the actions defined in
-   * the config.
-   */
-  private getReducer(storeConfig: StoreConfig): Reducer<State, Action> {
-    if (storeConfig.reducer) {
-      return storeConfig.reducer;
-    }
-    if (storeConfig.actions) {
-      return this.parseActions(storeConfig.actions, storeConfig.initialState);
-    }
-    return x => x;
-  }
-
-  /**
    * Parse a StoreConfig.action parameter and return a created reducer from the
    * given parameters.
    * @param actionTypes The parameter to parse.
    * @param initialState The initial state to pass to the created reducers.
    */
-  private parseActions(actionTypes: Object|Type<Action>[], initialState: State):
-      Reducer<State, Action> {
-    if (actionTypes instanceof Array) {
-      // TODO: Optimize by building a map of types to actions maybe.
-      return (state: State, action: Action): State => {
-        state = Object.assign({}, state || (initialState ? initialState : {}));
-        for (const actionType of actionTypes) {
-          if (action instanceof actionType) {
-            return action.reduce(state);
-          }
-        }
-        return state;
-      };
-    } else {
-      // Build a reducer. First, collapse the tree to be one-deep.
-      for (const key of Object.keys(actionTypes)) {
-        actionTypes[key] = this.parseActions(
-            actionTypes[key], initialState && initialState[key]);
-      }
-      // Then return a reducer that iterates through, calling the reducers.
-      return (state: State, action: Action): State => {
-        state = Object.assign({}, state || (initialState ? initialState : {}));
-        for (const key of Object.keys(state)) {
-          state[key] = actionTypes[key](state[key], action);
-        }
-        return state;
-      };
-    }
-  }
+  // private parseActions(actionTypes: Object|Type<Action>[], initialState:
+  // State):
+  //     Reducer<State, Action> {
+  //   if (actionTypes instanceof Array) {
+  //     // TODO: Optimize by building a map of types to actions maybe.
+  //     return (state: State, action: Action): State => {
+  //       state = Object.assign({}, state || (initialState ? initialState :
+  //       {})); for (const actionType of actionTypes) {
+  //         if (action instanceof actionType) {
+  //           return action.reduce(state);
+  //         }
+  //       }
+  //       return state;
+  //     };
+  //   } else {
+  //     // Build a reducer. First, collapse the tree to be one-deep.
+  //     for (const key of Object.keys(actionTypes)) {
+  //       actionTypes[key] = this.parseActions(
+  //           actionTypes[key], initialState && initialState[key]);
+  //     }
+  //     // Then return a reducer that iterates through, calling the reducers.
+  //     return (state: State, action: Action): State => {
+  //       state = Object.assign({}, state || (initialState ? initialState :
+  //       {})); for (const key of Object.keys(state)) {
+  //         state[key] = actionTypes[key](state[key], action);
+  //       }
+  //       return state;
+  //     };
+  //   }
+  // }
 }
