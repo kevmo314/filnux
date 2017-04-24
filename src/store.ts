@@ -1,10 +1,10 @@
 import {Injectable, Type} from '@angular/core';
 import {Observable} from 'rxjs/Observable';
 import {Observer} from 'rxjs/Observer';
-import {Subject} from 'rxjs/Rx';
+import {BehaviorSubject, Subject} from 'rxjs/Rx';
 
 import {Action, Node, State} from './filnux_module';
-import {DispatchAction} from './state_manager';
+import {CreateStoreAction, DispatchAction} from './state_manager';
 
 export interface StoreOptions<T> {
   context?: Type<any>;
@@ -15,15 +15,6 @@ export interface StoreOptions<T> {
 
 let count = 0;
 
-class InitializationAction<T> extends Action<T> {
-  constructor(private initialState: T) {
-    super();
-  }
-  reduce(state: T): T {
-    return this.initialState;
-  }
-}
-
 /**
  * A Store observes Actions and emits States.
  *
@@ -32,10 +23,11 @@ class InitializationAction<T> extends Action<T> {
  * reduction back to the store.
  */
 export class Store<T> implements Observer<Action<T>> {
-  private stateObservable: Subject<Readonly<T>>;
+  private stateObservable: BehaviorSubject<Readonly<T>>;
   public path: string[];
   constructor(private options: StoreOptions<T>) {
-    this.stateObservable = new Subject<Readonly<T>>();
+    this.stateObservable = new BehaviorSubject<Readonly<T>>(
+        Object.freeze(options.initialState || ({} as T)));
     if (options.actions) {
       this.addActions(options.actions);
     }
@@ -43,9 +35,7 @@ export class Store<T> implements Observer<Action<T>> {
       ...ROOT_STORE.getContextPath(options.context),
       options.name || String(++count)
     ];
-    if (options.initialState) {
-      this.next(new InitializationAction<T>(options.initialState));
-    }
+    ROOT_STORE.dispatch(new CreateStoreAction<T>(this.path, options));
   }
 
   addAction(actionType: Type<Action<T>>): Store<T> {
@@ -69,13 +59,16 @@ export class Store<T> implements Observer<Action<T>> {
    * @param action The action to issue
    */
   dispatch(action: Action<T>) {
-    this.next(action);
+    ROOT_STORE.dispatch(new DispatchAction(this.path, action));
+    let node = ROOT_STORE.getState();
+    for (const child of this.path) {
+      node = node[child];
+    }
+    this.stateObservable.next(Object.freeze(node as T));
   }
 
   next(action: Action<T>) {
-    ROOT_STORE.dispatch(new DispatchAction(this.path, action));
-    this.stateObservable.next(
-        Object.freeze(ROOT_STORE.getChild(this.path) as T));
+    this.dispatch(action);
   }
 
   error(err: any) {
@@ -105,17 +98,8 @@ class RootStore {
     return type ? [type.name] : [];
   }
 
-  getChild(path: string[]) {
-    let node = this.state;
-    for (const child of path) {
-      node = node[child];
-    }
-    return node;
-  }
-
-  dispatch(action: DispatchAction<any>) {
-    this.actions.next(
-        {action, state: this.state = Object.freeze(action.reduce(this.state))});
+  dispatch(action: DispatchAction<any>|CreateStoreAction<any>) {
+    this.actions.next({action, state: this.state = action.reduce(this.state)});
   }
 
   addAction(path: string[], actionType: Type<Action<any>>) {

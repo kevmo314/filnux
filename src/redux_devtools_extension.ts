@@ -58,9 +58,12 @@ export class ReduxDevtoolsExtension {
           if (!action) {
             this.conn.init(this.initialState = state);
           } else {
-            this.actions.set(action.type, action.action.constructor);
+            if (action instanceof DispatchAction) {
+              this.actions.set(action.type, action.action.constructor);
+            }
             // Preemptively resolve .type.
-            this.conn.send(Object.assign({type: action.type}, action), state);
+            this.conn.send(
+                Object.assign({}, action, {type: action.type}), state);
           }
         });
 
