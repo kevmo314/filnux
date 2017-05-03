@@ -1,16 +1,16 @@
 import {Observable} from 'rxjs/Observable';
 import {Subject} from 'rxjs/Rx';
 
-import {AssignAction} from './actions';
-import {Store} from './store';
+import { Store } from './store';
+import { Action } from './filnux_module';
 
 export function Select<T, O>(
-    store: Store<T>, getMapFn?: (state: T) => O, setMapFn?: (value: O) => T) {
+    store: Store<T>, getMapFn?: (state: T) => O, setMapFn?: (value: O) => Action<T>) {
   return (target, propertyKey: PropertyKey, descriptor: PropertyDescriptor) => {
     const destination = {
       closed: !setMapFn,
       next(value: O) {
-        store.dispatch(new AssignAction<T>(setMapFn(value)));
+        store.dispatch(setMapFn(value));
       },
       error(err) {
         console.error(err);
@@ -26,20 +26,20 @@ export function Select<T, O>(
 }
 
 export function SelectValue<T, O>(
-    store: Store<T>, getMapFn?: (state: T) => O, setMapFn?: (value: O) => T) {
+    store: Store<T>, getMapFn: (state: T) => O, setMapFn?: (value: O) => Action<T>) {
   return (target, propertyKey: PropertyKey, descriptor: PropertyDescriptor) => {
     let currentValue: O = null;
     if (getMapFn) {
       store.select(getMapFn).subscribe(value => currentValue = value);
     } else {
-      store.select(x => x).subscribe(value => currentValue = value);
+      // store.select(x => x).subscribe(value => currentValue = value);
     }
     Object.assign(descriptor, {
       get() {
-        currentValue;
+        return currentValue;
       },
       set(value: O) {
-        store.dispatch(new AssignAction<T>(setMapFn(value)));
+        store.dispatch(setMapFn(value));
       },
     });
   };
