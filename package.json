@@ -1,6 +1,6 @@
 {
   "name": "filnux",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Isolated state management for Angular.",
   "repository": "https://github.com/kevmo314/filnux.git",
   "author": "Kevin Wang <kevmo314@gmail.com>",
