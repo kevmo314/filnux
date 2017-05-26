@@ -1,19 +1,20 @@
 # Filnux
-Isolate, immutable state management for Angular.
+
+Isolate, immutable state management for TypeScript.
+
+**Actually, right now just for Angular, but generalized TypeScript support coming soon.**
 
 __Filnux is still in active development. Many parts may not be working yet, see [planned features](#planned-features).__
 
 Filnux takes its inspiration from [@ngrx/store](https://github.com/ngrx/store) with a few key modifications.
 
-- Each module has its own store.
+- Stores can be created on-demand.
 - Class-based actions are used instead of a centralized reducer, allowing them to be contained within the module.
 - Actions do not rely on magic strings for identification.
 
 ## Installation
 
-```sh
-npm install filnux --save
-```
+`npm install filnux --save` or `yarn add filnux`.
 
 # Example setup
 
@@ -26,14 +27,16 @@ We'll first create a state interface, then create actions, then install the acti
 ```ts
 // counter.module.ts
 export class State {
-  value: number;
-  constructor(copy: State) {
-    this.value = copy.value;
+  value: number = 0;
+  constructor(previous?: State) {
+    if (previous) {
+      this.value = previous.value;
+    }
   }
 }
 ```
 
-`State` doesn't have to be a class, it can be an interface instead, however it is nice to have a copy constructor for easy immutability in the actions.
+`State` doesn't have to be a class, it can be an interface instead, however it is nice to have a copy constructor for easy immutability in the actions. Additionally, having a class allows us some nice semantics for defining initial values.
 
 ## Creating actions
 
@@ -75,7 +78,7 @@ import {CounterModule} from './counter.module';
 @NgModule({
   imports: [
     CounterModule,
-    FilnuxModule.forRoot({module: AppModule, children: [CounterModule]})
+    FilnuxModule.forRoot(AppModule)
   ],
 })
 export class AppModule {
@@ -83,21 +86,7 @@ export class AppModule {
 }
 ```
 
-and then add an import for `CounterModule`, but instead with `FilnuxModule.forChild()`, installing the actions.
-
-```ts
-// counter.module.ts
-import {FilnuxModule} from 'filnux';
-
-@NgModule({
-  imports: [
-    FilnuxModule.forChild({module: CounterModule, actions: [ResetCounterAction, DeltaCounterAction], initialState: {value: 0}})
-  ],
-})
-export class CounterModule {
-  ...
-}
-```
+The second optional argument to `.forRoot()` is passed to Redux DevTools. See the available parameters [here](http://extension.remotedev.io/docs/API/Arguments.html).
 
 ## Using the store
 
@@ -120,9 +109,13 @@ import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
 })
 class CounterComponent {
 	counter: Observable<number>;
+  store: Store<State>;
 
 	constructor(private store: Store){
-		this.counter = store.select<State>(CounterModule).map(state => state.value);
+    this.store = new Store<State>({
+                   initialState: new State()
+                 }).addActions([ResetCounterAction, DeltaCounterAction]);
+    this.counter = this.store.select(s => s.value);
 	}
 
 	increment(){
@@ -139,55 +132,11 @@ class CounterComponent {
 }
 ```
 
-Note that unlike other Redux implementations that take the key as an argument to `.select()`, Filnux takes the module whose store you'd like to access. This allows you to access any module's store from any component, however it is recommended to only access child module's stores to maintain encapsulation. Additionally, you will always receive the module's entire state, so we must map the observable to the relevant value.
-
 To dispatch actions, we simply create a new instance of the action we'd like to dispatch and send it off to the store with `.dispatch()`.
-
-# Configuration
-
-The `.forRoot()` and `.forChild()` accept a single object as argument, which takes the following parameters
-
-```ts
-export interface StoreConfig {
-  children?: Type<any>[];
-  reducer?: Reducer<State, Action>;
-  actions?: Object|Action[];
-  module: Type<any>;
-  devtoolsOptions?: ReduxDevtoolsOptions;
-  initialState?: State;
-}
-```
-
-- `children` is an optional list of child modules.
-- `reducer` is an optional function that, if provided, behaves like the standard Redux reducer.
-- `actions` is a list of actions, or an object to restrict actions to specific fields.
-- `module` is the current module.
-- `devtoolsOptions` is an object that is passed to [Redux DevTools](http://extension.remotedev.io/docs/API/Arguments.html).
-- `initialState` is the state to start with.
-
-## Devtools
-
-Filnux works with the [Redux DevTools](http://extension.remotedev.io/) with no additional configuration.
 
 # Simplified example
 
 In the [example setup](#example-setup), we used a full object to represent state for demonstration purposes. We can get away with a much simpler set of definitions.
-
-```ts
-// counter.module.ts
-import {FilnuxModule} from 'filnux';
-
-@NgModule({
-  imports: [
-    FilnuxModule.forRoot({module: CounterModule, actions: [ResetCounterAction, DeltaCounterAction], initialState: 0})
-  ],
-})
-export class CounterModule {
-  ...
-}
-```
-
-Note that `.forRoot()` doesn't need to be installed necessarily at the root of your application, but it should be installed as far up your feature tree as possible. It's generally a good idea to put it in the root `AppModule`.
 
 ```ts
 // counter.store.ts
@@ -204,42 +153,6 @@ class DeltaCounterAction implements Action {
   reduce(state: number): number {
     return state + delta;
   }
-}
-```
-
-```ts
-// counter.component.ts
-import {Store} from 'filnux';
-import {CounterModule} from './counter.module';
-import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
-
-@Component({
-	selector: 'counter',
-	template: `
-		<button (click)="increment()">Increment</button>
-		<div>Current Count: {{ counter | async }}</div>
-		<button (click)="decrement()">Decrement</button>
-		<button (click)="reset()">Reset Counter</button>
-	`
-})
-class CounterComponent {
-	counter: Observable<number>;
-
-	constructor(private store: Store){
-		this.counter = store.select<State>(CounterModule);
-	}
-
-	increment(){
-		this.store.dispatch(new DeltaCounterAction(1));
-	}
-
-	decrement(){
-		this.store.dispatch(new DeltaCounterAction(-1));
-	}
-
-	reset(){
-		this.store.dispatch(new ResetCounterAction());
-	}
 }
 ```
 

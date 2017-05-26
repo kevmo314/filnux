@@ -24,6 +24,10 @@ let count = 0;
  */
 export class Store<T> implements Observer<Action<T>> {
   private stateObservable: BehaviorSubject<Readonly<T>>;
+  // To avoid having to traverse the state tree multiple times, we keep a
+  // pointer to the cache that is populated lazily and invalidated when a tree
+  // update occurs.
+  private stateCache: Readonly<T> = null;
   public path: string[];
   constructor(private options: StoreOptions<T>) {
     this.stateObservable = new BehaviorSubject<Readonly<T>>(
@@ -54,17 +58,26 @@ export class Store<T> implements Observer<Action<T>> {
     return this.stateObservable.map(mapFn);
   }
 
-  /**
-   * Dispatch a new action to the global state.
-   * @param action The action to issue
-   */
-  dispatch(action: Action<T>) {
-    ROOT_STORE.dispatch(new DispatchAction(this.path, action));
+  /** Gets the current state. */
+  get state(): Readonly<T> {
+    if (this.stateCache) {
+      return this.stateCache;
+    }
     let node = ROOT_STORE.getState();
     for (const child of this.path) {
       node = node[child];
     }
-    this.stateObservable.next(Object.freeze(node as T));
+    return this.stateCache = Object.freeze(node as T);
+  }
+
+  /**
+   * Dispatches a new action to the global state.
+   * @param action The action to issue
+   */
+  dispatch(action: Action<T>) {
+    ROOT_STORE.dispatch(new DispatchAction(this.path, action));
+    this.stateCache = null;
+    this.stateObservable.next(this.state);
   }
 
   next(action: Action<T>) {
@@ -106,4 +119,5 @@ class RootStore {
     // Adds an action as a valid type.
   }
 }
+
 export const ROOT_STORE = new RootStore();
