@@ -98,36 +98,36 @@ import {Store} from 'filnux';
 import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
 
 @Component({
-	selector: 'counter',
-	template: `
-		<button (click)="increment()">Increment</button>
-		<div>Current Count: {{ counter | async }}</div>
-		<button (click)="decrement()">Decrement</button>
-		<button (click)="reset()">Reset Counter</button>
-	`
+  selector: 'counter',
+  template: `
+    <button (click)="increment()">Increment</button>
+    <div>Current Count: {{ counter | async }}</div>
+    <button (click)="decrement()">Decrement</button>
+    <button (click)="reset()">Reset Counter</button>
+  `
 })
 class CounterComponent {
-	counter: Observable<number>;
+  counter: Observable<number>;
   store: Store<State>;
 
-	constructor(private store: Store){
+  constructor(private store: Store){
     this.store = new Store<State>({
                    initialState: new State()
                  }).addActions([ResetCounterAction, DeltaCounterAction]);
     this.counter = this.store.select(s => s.value);
-	}
+  }
 
-	increment(){
-		this.store.dispatch(new DeltaCounterAction(1));
-	}
+  increment(){
+    this.store.dispatch(new DeltaCounterAction(1));
+  }
 
-	decrement(){
-		this.store.dispatch(new DeltaCounterAction(-1));
-	}
+  decrement(){
+    this.store.dispatch(new DeltaCounterAction(-1));
+  }
 
-	reset(){
-		this.store.dispatch(new ResetCounterAction());
-	}
+  reset(){
+    this.store.dispatch(new ResetCounterAction());
+  }
 }
 ```
 
