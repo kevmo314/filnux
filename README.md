@@ -20,12 +20,12 @@ Filnux takes its inspiration from [@ngrx/store](https://github.com/ngrx/store) w
 
 For this example setup, we'll go through the standard Redux counter actions. Suppose our application consists a `CounterModule`, living in `counter.module.ts`, which is imported by `AppModule`.
 
-We'll first create a state interface, then create actions, then install the actions into our modules. It is recommended to put the state and actions in a `counter.store.ts` to mimic `counter.module.ts`, however this is not required. Feel free to mimic whatever naming convention you have in use.
+We'll first create a state interface, then create actions, then install the actions into our modules. It is recommended to put the state and actions in a `counter.store.ts`, however this is not required. Feel free to mimic whatever naming convention you have in use.
 
 ## Create a state
 
 ```ts
-// counter.module.ts
+// counter.store.ts
 export class State {
   value: number = 0;
   constructor(previous?: State) {
@@ -95,7 +95,6 @@ In `CounterComponent`, we can inject `Store` to retrieve the store for our `Stat
 ```ts
 // counter.component.ts
 import {Store} from 'filnux';
-import {CounterModule} from './counter.module';
 import {State, ResetCounterAction, DeltaCounterAction} from './counter.store';
 
 @Component({
